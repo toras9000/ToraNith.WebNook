@@ -1,3 +1,4 @@
 <Solution>
   <Project Path="src/ToraNith.WebNook.csproj" />
+  <Project Path="tests/ToraNith.WebNook.Tests/ToraNith.WebNook.Tests.csproj" Id="696844f6-e1b2-4a70-9be6-89bcd6070a20" />
 </Solution>
