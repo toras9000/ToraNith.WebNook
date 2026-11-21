@@ -7,16 +7,67 @@ using Microsoft.Extensions.Options;
 
 namespace ToraNith.WebNook;
 
-/// <summary>認証結果</summary>
+/// <summary>シンプル認証成功結果</summary>
 /// <param name="Name">認証ユーザ名</param>
 /// <param name="Role">認証ユーザロール</param>
-public record SimpleAuthResult(string Name, string Role);
+public record SimpleAuthSuccess(string Name, string Role);
+
+/// <summary>シンプル認証失敗結果</summary>
+/// <param name="Message"></param>
+public record SimpleAuthFailed(string Message);
+
+/// <summary>シンプル認証結果</summary>
+public union SimpleAuthResult(SimpleAuthSuccess, SimpleAuthFailed);
+
+/// <summary>シンプル認証リゾルバ</summary>
+/// <param name="scheme">スキーマ名</param>
+/// <param name="header">認証ヘッダ</param>
+/// <returns>認証結果。null の場合は対象外。</returns>
+public delegate AuthenticateResult? SimpleAuthResolver(string scheme, AuthenticationHeaderValue header);
+
+/// <summary>シンプル認証バリデータ</summary>
+/// <param name="header">認証ヘッダ</param>
+/// <returns>シンプル認証結果。null の場合は対象外。</returns>
+public delegate SimpleAuthResult? SimpleAuthValidator(AuthenticationHeaderValue header);
 
 /// <summary>シンプル認証オプション</summary>
 public class SimpleAuthSchemeOptions : AuthenticationSchemeOptions
 {
-    /// <summary>認証ハンドラ</summary>
-    public Func<AuthenticationHeaderValue, SimpleAuthResult?>? SimpleAuth { get; set; }
+    /// <summary>認証リゾルバ</summary>
+    public SimpleAuthResolver? AuthResolver { get; set; }
+
+    /// <summary>シンプル認証バリデータを使って認証リゾルバ(<see cref="AuthResolver"/>)を設定する</summary>
+    /// <param name="validator">検証デリゲート</param>
+    public void UseValidator(SimpleAuthValidator validator)
+    {
+        // バリデータを使って認証結果を作るハンドラにラップ
+        this.AuthResolver = (scheme, header) =>
+        {
+            // バリデータで結果を取得
+            var result = validator(header);
+            if (result is SimpleAuthSuccess success)
+            {
+                // 認証結果から認証情報作成
+                var claims = new[] {
+                        new Claim(ClaimTypes.Name, success.Name),
+                        new Claim(ClaimTypes.Role, success.Role),
+                    };
+                var identity = new ClaimsIdentity(claims, scheme);
+                var principal = new ClaimsPrincipal(identity);
+                var ticket = new AuthenticationTicket(principal, scheme);
+
+                // 認証成功を返却
+                return AuthenticateResult.Success(ticket);
+            }
+            else if (result is SimpleAuthFailed failed)
+            {
+                // 有効な認証結果が無ければ失敗
+                return AuthenticateResult.Fail(failed.Message);
+            }
+
+            return default;
+        };
+    }
 }
 
 /// <summary>シンプル認証ハンドラ</summary>
@@ -38,23 +89,13 @@ public class SimpleAuthHandler(IOptionsMonitor<SimpleAuthSchemeOptions> options,
         }
 
         // 認証ハンドラで検証
-        var auth = this.Options.SimpleAuth?.Invoke(authValue);
-        if (auth == null)
+        var result = this.Options.AuthResolver?.Invoke(this.Scheme.Name, authValue);
+        if (result == null)
         {
-            // 有効な認証結果が無ければ失敗
-            return AuthenticateResult.Fail("Invalid authentication");
+            // 結果が無ければ対象外
+            return AuthenticateResult.NoResult();
         }
 
-        // 認証結果から認証情報作成
-        var claims = new[] {
-            new Claim(ClaimTypes.Name, auth.Name),
-            new Claim(ClaimTypes.Role, auth.Role),
-        };
-        var identity = new ClaimsIdentity(claims, this.Scheme.Name);
-        var principal = new ClaimsPrincipal(identity);
-        var ticket = new AuthenticationTicket(principal, this.Scheme.Name);
-
-        // 認証成功を返却
-        return AuthenticateResult.Success(ticket);
+        return result;
     }
 }

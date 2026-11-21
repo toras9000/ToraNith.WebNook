@@ -16,13 +16,8 @@ public class SimpleAuthHandlerTests
         var context = new DefaultHttpContext();
         context.Request.Headers.Authorization = "Bearer valid-token";
 
-        var options = new SimpleAuthSchemeOptions()
-        {
-            SimpleAuth = (header) =>
-            {
-                return new("TestName", "TestRole");
-            },
-        };
+        var options = new SimpleAuthSchemeOptions();
+        options.UseValidator((header) => new SimpleAuthSuccess("TestName", "TestRole"));
 
         var scheme = new AuthenticationScheme(name: "TestScheme", displayName: null, handlerType: typeof(SimpleAuthHandler));
         var handler = new SimpleAuthHandler(TestOptions.Create(options), NullLoggerFactory.Instance, UrlEncoder.Default);
@@ -45,13 +40,8 @@ public class SimpleAuthHandlerTests
     {
         var context = new DefaultHttpContext();
 
-        var options = new SimpleAuthSchemeOptions()
-        {
-            SimpleAuth = (header) =>
-            {
-                return new("TestName", "TestRole");
-            },
-        };
+        var options = new SimpleAuthSchemeOptions();
+        options.UseValidator((header) => new SimpleAuthSuccess("TestName", "TestRole"));
 
         var scheme = new AuthenticationScheme(name: "TestScheme", displayName: null, handlerType: typeof(SimpleAuthHandler));
         var handler = new SimpleAuthHandler(TestOptions.Create(options), NullLoggerFactory.Instance, UrlEncoder.Default);
@@ -67,10 +57,7 @@ public class SimpleAuthHandlerTests
     {
         var context = new DefaultHttpContext();
 
-        var options = new SimpleAuthSchemeOptions()
-        {
-            SimpleAuth = null,
-        };
+        var options = new SimpleAuthSchemeOptions();
 
         var scheme = new AuthenticationScheme(name: "TestScheme", displayName: null, handlerType: typeof(SimpleAuthHandler));
         var handler = new SimpleAuthHandler(TestOptions.Create(options), NullLoggerFactory.Instance, UrlEncoder.Default);

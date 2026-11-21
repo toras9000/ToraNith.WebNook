@@ -47,15 +47,15 @@ Simple authentication configuration.
 builder.Services.AddAuthentication(nameof(SimpleAuthHandler))
     .AddScheme<SimpleAuthSchemeOptions, SimpleAuthHandler>(nameof(SimpleAuthHandler), default);
 builder.Services.AddOptions<SimpleAuthSchemeOptions>(nameof(SimpleAuthHandler))
-        .Configure(options =>
+    .Configure(options =>
+    {
+        options.UseValidator(header =>
         {
-            options.SimpleAuth = header =>
-            {
-                if (header.Scheme == "Bearer" && header.Parameter == "secret-keyword")
-                {
-                    return new("AuthName", "AuthRole");
-                }
-                return null;
-            };
+            if (header.Scheme != "Bearer") return null;
+
+            return header.Parameter == "secret-keyword"
+                    ? new SimpleAuthSuccess("AuthName", "AuthRole")
+                    : new SimpleAuthFailed("");
         });
+    });
 ```
